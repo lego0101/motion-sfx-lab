@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOTION SFX LAB</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1c1c1c;
+    --line: #262626;
+    --accent: #d4ff00;
+    --accent-2: #ff3366;
+    --text: #f5f5f5;
+    --muted: #707070;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(212,255,0,0.04), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(255,51,102,0.04), transparent 40%);
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    z-index: 1000;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  .brand h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    line-height: 0.9;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .brand h1 .accent { color: var(--accent); }
+
+  .brand .tag {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  .meta {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    letter-spacing: 1px;
+  }
+
+  .meta .live::before {
+    content: '●';
+    color: var(--accent);
+    margin-right: 6px;
+    animation: blink 1.4s infinite;
+  }
+
+  @keyframes blink {
+    0%, 70% { opacity: 1; }
+    71%, 100% { opacity: 0.2; }
+  }
+
+  main {
+    padding: 32px 40px;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 32px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* Preset list */
+  .presets {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    background: var(--surface-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-title .count {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .preset-list {
+    list-style: none;
+    max-height: calc(100vh - 240px);
+    overflow-y: auto;
+  }
+
+  .preset-list::-webkit-scrollbar { width: 6px; }
+  .preset-list::-webkit-scrollbar-track { background: var(--surface); }
+  .preset-list::-webkit-scrollbar-thumb { background: var(--line); }
+
+  .preset-item {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .preset-item:hover {
+    background: var(--surface-2);
+    padding-left: 22px;
+  }
+
+  .preset-item.active {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    padding-left: 22px;
+  }
+
+  .preset-item .num {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    min-width: 24px;
+  }
+
+  .preset-item .name {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .preset-item .cat {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+
+  .preset-item.active .cat {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Workspace */
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* Visualizer */
+  .visualizer {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .viz-canvas {
+    width: 100%;
+    height: 220px;
+    display: block;
+    background:
+      linear-gradient(180deg, rgba(212,255,0,0.02) 0%, transparent 50%, rgba(255,51,102,0.02) 100%);
+  }
+
+  .viz-info {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  .viz-info .now-playing {
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  /* Controls grid */
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+
+  .controls-grid {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 28px 32px;
+  }
+
+  .control {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .control-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .control-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    cursor: pointer;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    cursor: pointer;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  /* Action bar */
+  .action-bar {
+    padding: 20px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  button:hover {
+    border-color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  button.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  button.primary:hover {
+    background: var(--text);
+    border-color: var(--text);
+  }
+
+  button.danger {
+    border-color: var(--accent-2);
+    color: var(--accent-2);
+  }
+
+  button.danger:hover {
+    background: var(--accent-2);
+    color: var(--bg);
+  }
+
+  button:active {
+    transform: translateY(1px);
+  }
+
+  /* Footer info */
+  .info-strip {
+    padding: 16px 40px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .info-strip .keys span {
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+    .preset-list {
+      max-height: 240px;
+    }
+    header {
+      padding: 24px;
+    }
+    main {
+      padding: 24px;
+    }
+    .brand h1 {
+      font-size: 40px;
+    }
+  }
+
+  /* Pulse on trigger */
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(212,255,0,0.5); }
+    100% { box-shadow: 0 0 0 20px rgba(212,255,0,0); }
+  }
+  .visualizer.triggered {
+    animation: pulse 0.4s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>MOTION<span class="accent">/</span>SFX</h1>
+    <span class="tag">LAB · v1.0</span>
+  </div>
+  <div class="meta">
+    <div class="live">WEB AUDIO ENGINE READY</div>
+    <div>SAMPLE RATE: 44.1kHz · 16-BIT WAV EXPORT</div>
+  </div>
+</header>
+
+<main>
+  <!-- Preset list -->
+  <aside class="presets">
+    <div class="panel-title">
+      <span>PRESETS</span>
+      <span class="count" id="presetCount">00</span>
+    </div>
+    <ul class="preset-list" id="presetList"></ul>
+  </aside>
+
+  <!-- Workspace -->
+  <section class="workspace">
+    <div class="visualizer" id="visualizer">
+      <canvas class="viz-canvas" id="vizCanvas"></canvas>
+      <div class="viz-info">
+        <span>WAVEFORM · REAL-TIME</span>
+        <span class="now-playing" id="nowPlaying">— SELECT A PRESET —</span>
+        <span id="durationLabel">0.00s</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="panel-title">
+        <span>PARAMETERS</span>
+        <span style="color: var(--muted);" id="presetCategory">—</span>
+      </div>
+      <div class="controls-grid" id="controlsGrid"></div>
+      <div class="action-bar">
+        <button class="primary" id="playBtn">▶ PLAY (SPACE)</button>
+        <button id="downloadBtn">↓ EXPORT WAV</button>
+        <button id="randomizeBtn">⚄ RANDOMIZE</button>
+        <button class="danger" id="resetBtn">↺ RESET</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="info-strip">
+  <div>MOTION GRAPHICS · UI · TRANSITIONS · LOGO REVEALS · TEXT · IMPACTS</div>
+  <div class="keys"><span>SPACE</span>PLAY · <span>1-9</span>SWITCH · <span>R</span>RANDOM</div>
+</footer>
+
+<script>
+/* ============================================================
+   MOTION SFX LAB — Web Audio API generator
+   Each preset is a synthesis function; parameters drive it.
+   ============================================================ */
+
+let audioCtx;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+/* ---------- Helpers ---------- */
+const dbToGain = db => Math.pow(10, db / 20);
+const lerp = (a,b,t) => a + (b-a)*t;
+const rand = (a,b) => a + Math.random()*(b-a);
+
+// Render a synthesis function offline so we can also export WAV.
+async function renderToBuffer(synthFn, duration, sampleRate=44100) {
+  const offline = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
+  synthFn(offline, offline.destination);
+  return await offline.startRendering();
+}
+
+function bufferToWav(buffer) {
+  const numCh = buffer.numberOfChannels;
+  const len = buffer.length * numCh * 2 + 44;
+  const arr = new ArrayBuffer(len);
+  const view = new DataView(arr);
+  let pos = 0;
+  const write = (s) => { for (let i=0;i<s.length;i++) view.setUint8(pos++, s.charCodeAt(i)); };
+  const u32 = (v) => { view.setUint32(pos, v, true); pos += 4; };
+  const u16 = (v) => { view.setUint16(pos, v, true); pos += 2; };
+
+  write('RIFF'); u32(len - 8); write('WAVE');
+  write('fmt '); u32(16); u16(1); u16(numCh);
+  u32(buffer.sampleRate); u32(buffer.sampleRate * numCh * 2);
+  u16(numCh * 2); u16(16);
+  write('data'); u32(buffer.length * numCh * 2);
+
+  const channels = [];
+  for (let i=0;i<numCh;i++) channels.push(buffer.getChannelData(i));
+  for (let i=0;i<buffer.length;i++) {
+    for (let ch=0;ch<numCh;ch++) {
+      let s = Math.max(-1, Math.min(1, channels[ch][i]));
+      view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      pos += 2;
+    }
+  }
+  return new Blob([arr], { type: 'audio/wav' });
+}
+
+/* ---------- Synthesis primitives ---------- */
+function noiseBuffer(ctx, duration) {
+  const len = Math.floor(ctx.sampleRate * duration);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i] = Math.random()*2 - 1;
+  return buf;
+}
+
+/* ============================================================
+   PRESETS  (each is a Synth + Params descriptor)
+   synth(ctx, dest, p, t0)  — schedule sound at time t0
+   params: each {key, label, min, max, step, default, unit}
+   duration(p): total sound length
+   ============================================================ */
+
+const PRESETS = [
+
+  /* 01 — UI CLICK / TAP */
+  {
+    id: 'click', name: 'UI Click', cat: 'UI',
+    params: [
+      { key:'pitch', label:'Pitch', min:400, max:3000, step:10, default:1400, unit:'Hz' },
+      { key:'snap',  label:'Snap',  min:0.001, max:0.02, step:0.001, default:0.004, unit:'s' },
+      { key:'tone',  label:'Tone',  min:0, max:1, step:0.01, default:0.6, unit:'' },
+      { key:'volume',label:'Volume',min:0, max:1, step:0.01, default:0.7, unit:'' }
+    ],
+    duration: p => 0.08,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(p.pitch * 1.6, t);
+      osc.frequency.exponentialRampToValueAtTime(p.pitch, t + p.snap);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(p.volume, t + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      // Click body (noise)
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer(ctx, 0.02);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(p.tone * p.volume * 0.3, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+      const hp = ctx.createBiquadFilter();
+      hp.type='highpass'; hp.frequency.value = 2000;
+
+      osc.connect(gain).connect(dest);
+      noise.connect(ng).connect(hp).connect(dest);
+      osc.start(t); osc.stop(t + 0.08);
+      noise.start(t);
+    }
+  },
+
+  /* 02 — WHOOSH */
+  {
+    id: 'whoosh', name: 'Whoosh / Swipe', cat: 'TRANSITION',
+    params: [
+      { key:'speed',  label:'Speed',  min:0.15, max:0.8, step:0.01, default:0.35, unit:'s' },
+      { key:'sweep',  label:'Sweep',  min:200, max:6000, step:50, default:2500, unit:'Hz' },
+      { key:'air',    label:'Air',    min:0.1, max:1, step:0.01, default:0.7, unit:'' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.6, unit:'' }
+    ],
+    duration: p => p.speed + 0.05,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer(ctx, p.speed + 0.1);
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.Q.value = 4;
+      bp.frequency.setValueAtTime(p.sweep * 0.2, t);
+      bp.frequency.exponentialRampToValueAtTime(p.sweep, t + p.speed * 0.4);
+      bp.frequency.exponentialRampToValueAtTime(p.sweep * 0.15, t + p.speed);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(p.volume * p.air, t + p.speed * 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + p.speed);
+
+      noise.connect(bp).connect(gain).connect(dest);
+      noise.start(t);
+    }
+  },
+
+  /* 03 — POP / BUBBLE */
+  {
+    id: 'pop', name: 'Pop / Bubble', cat: 'UI',
+    params: [
+      { key:'pitch', label:'Pitch', min:200, max:1200, step:10, default:550, unit:'Hz' },
+      { key:'pluck', label:'Pluck', min:0.05, max:0.4, step:0.01, default:0.15, unit:'s' },
+      { key:'wet',   label:'Body',  min:0, max:1, step:0.01, default:0.5, unit:'' },
+      { key:'volume',label:'Volume',min:0, max:1, step:0.01, default:0.7, unit:'' }
+    ],
+    duration: p => p.pluck + 0.05,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(p.pitch * 0.4, t);
+      osc.frequency.exponentialRampToValueAtTime(p.pitch * 2.2, t + 0.02);
+      osc.frequency.exponentialRampToValueAtTime(p.pitch, t + p.pluck * 0.5);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(p.volume, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + p.pluck);
+
+      // Body resonance
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(p.pitch * 1.5, t);
+      const g2 = ctx.createGain();
+      g2.gain.setValueAtTime(0, t);
+      g2.gain.linearRampToValueAtTime(p.volume * p.wet * 0.5, t + 0.01);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + p.pluck * 0.7);
+
+      osc.connect(gain).connect(dest);
+      osc2.connect(g2).connect(dest);
+      osc.start(t); osc.stop(t + p.pluck + 0.05);
+      osc2.start(t); osc2.stop(t + p.pluck + 0.05);
+    }
+  },
+
+  /* 04 — IMPACT / HIT */
+  {
+    id: 'impact', name: 'Impact / Hit', cat: 'IMPACT',
+    params: [
+      { key:'weight', label:'Weight',  min:30, max:200, step:1, default:80, unit:'Hz' },
+      { key:'crack',  label:'Crack',   min:0, max:1, step:0.01, default:0.6, unit:'' },
+      { key:'tail',   label:'Tail',    min:0.1, max:1.5, step:0.01, default:0.6, unit:'s' },
+      { key:'volume', label:'Volume',  min:0, max:1, step:0.01, default:0.85, unit:'' }
+    ],
+    duration: p => p.tail + 0.1,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      // Sub thump
+      const sub = ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(p.weight * 3, t);
+      sub.frequency.exponentialRampToValueAtTime(p.weight, t + 0.08);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0, t);
+      sg.gain.linearRampToValueAtTime(p.volume, t + 0.005);
+      sg.gain.exponentialRampToValueAtTime(0.001, t + p.tail);
+
+      // Crack noise
+      const n = ctx.createBufferSource();
+      n.buffer = noiseBuffer(ctx, 0.3);
+      const nf = ctx.createBiquadFilter();
+      nf.type = 'highpass'; nf.frequency.value = 800;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0, t);
+      ng.gain.linearRampToValueAtTime(p.volume * p.crack, t + 0.002);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+      sub.connect(sg).connect(dest);
+      n.connect(nf).connect(ng).connect(dest);
+      sub.start(t); sub.stop(t + p.tail + 0.1);
+      n.start(t);
+    }
+  },
+
+  /* 05 — RISER */
+  {
+    id: 'riser', name: 'Riser / Build-up', cat: 'TRANSITION',
+    params: [
+      { key:'length', label:'Length',  min:0.6, max:3, step:0.05, default:1.5, unit:'s' },
+      { key:'top',    label:'Top',     min:1500, max:8000, step:50, default:5000, unit:'Hz' },
+      { key:'tense',  label:'Tension', min:0.2, max:1, step:0.01, default:0.7, unit:'' },
+      { key:'volume', label:'Volume',  min:0, max:1, step:0.01, default:0.6, unit:'' }
+    ],
+    duration: p => p.length + 0.05,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const n = ctx.createBufferSource();
+      n.buffer = noiseBuffer(ctx, p.length + 0.1);
+
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.Q.value = 6 + p.tense * 10;
+      f.frequency.setValueAtTime(200, t);
+      f.frequency.exponentialRampToValueAtTime(p.top, t + p.length);
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(p.volume, t + p.length);
+      g.gain.linearRampToValueAtTime(0, t + p.length + 0.05);
+
+      // Sweeping sine for pitch tension
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(80, t);
+      o.frequency.exponentialRampToValueAtTime(p.top * 0.4, t + p.length);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, t);
+      og.gain.linearRampToValueAtTime(p.volume * p.tense * 0.35, t + p.length * 0.95);
+      og.gain.linearRampToValueAtTime(0, t + p.length + 0.05);
+
+      n.connect(f).connect(g).connect(dest);
+      o.connect(og).connect(dest);
+      n.start(t); o.start(t); o.stop(t + p.length + 0.1);
+    }
+  },
+
+  /* 06 — TYPING / TICK */
+  {
+    id: 'tick', name: 'Tick / Type', cat: 'TEXT',
+    params: [
+      { key:'pitch',  label:'Pitch',  min:1500, max:6000, step:50, default:3500, unit:'Hz' },
+      { key:'sharp',  label:'Sharpness', min:0.001, max:0.01, step:0.0005, default:0.003, unit:'s' },
+      { key:'wood',   label:'Wood',   min:0, max:1, step:0.01, default:0.5, unit:'' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.65, unit:'' }
+    ],
+    duration: p => 0.05,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const n = ctx.createBufferSource();
+      n.buffer = noiseBuffer(ctx, 0.05);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = p.pitch * 0.6;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p.volume, t + 0.0005);
+      g.gain.exponentialRampToValueAtTime(0.001, t + p.sharp + 0.01);
+      n.connect(hp).connect(g).connect(dest);
+      n.start(t);
+
+      // Wood resonance
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.value = p.pitch * 0.5;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, t);
+      og.gain.linearRampToValueAtTime(p.volume * p.wood * 0.3, t + 0.001);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+      o.connect(og).connect(dest);
+      o.start(t); o.stop(t + 0.04);
+    }
+  },
+
+  /* 07 — LOGO REVEAL */
+  {
+    id: 'reveal', name: 'Logo Reveal', cat: 'BRAND',
+    params: [
+      { key:'attack',  label:'Attack',  min:0.05, max:0.5, step:0.01, default:0.15, unit:'s' },
+      { key:'shimmer', label:'Shimmer', min:0, max:1, step:0.01, default:0.7, unit:'' },
+      { key:'depth',   label:'Depth',   min:0, max:1, step:0.01, default:0.6, unit:'' },
+      { key:'volume',  label:'Volume',  min:0, max:1, step:0.01, default:0.6, unit:'' }
+    ],
+    duration: p => 1.4,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      // Sub hit
+      const sub = ctx.createOscillator();
+      sub.type='sine'; sub.frequency.setValueAtTime(120, t);
+      sub.frequency.exponentialRampToValueAtTime(45, t + 0.4);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0, t);
+      sg.gain.linearRampToValueAtTime(p.volume * p.depth, t + 0.01);
+      sg.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      sub.connect(sg).connect(dest);
+      sub.start(t); sub.stop(t + 1.4);
+
+      // Shimmer chord (perfect 5th + octave)
+      const freqs = [523.25, 783.99, 1046.5];
+      freqs.forEach((f, i) => {
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.value = f;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(p.volume * p.shimmer * 0.25, t + p.attack);
+        g.gain.linearRampToValueAtTime(p.volume * p.shimmer * 0.18, t + p.attack + 0.3);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+        // slight detune for richness
+        o.detune.value = (i-1) * 4;
+        o.connect(g).connect(dest);
+        o.start(t + i*0.02); o.stop(t + 1.4);
+      });
+    }
+  },
+
+  /* 08 — GLITCH */
+  {
+    id: 'glitch', name: 'Glitch / Error', cat: 'GLITCH',
+    params: [
+      { key:'rate',   label:'Rate',   min:8, max:80, step:1, default:30, unit:'Hz' },
+      { key:'pitch',  label:'Pitch',  min:200, max:2000, step:10, default:800, unit:'Hz' },
+      { key:'chaos',  label:'Chaos',  min:0, max:1, step:0.01, default:0.6, unit:'' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.55, unit:'' }
+    ],
+    duration: p => 0.4,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const dur = 0.4;
+      const steps = Math.floor(dur * p.rate);
+      for (let i=0; i<steps; i++) {
+        const ts = t + i/p.rate;
+        const o = ctx.createOscillator();
+        o.type = ['square','sawtooth','triangle'][Math.floor(Math.random()*3)];
+        const f = p.pitch * (1 + (Math.random()*2-1) * p.chaos);
+        o.frequency.value = Math.max(50, f);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, ts);
+        g.gain.linearRampToValueAtTime(p.volume * Math.random(), ts + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.001, ts + 1/p.rate);
+        o.connect(g).connect(dest);
+        o.start(ts); o.stop(ts + 1/p.rate + 0.01);
+      }
+    }
+  },
+
+  /* 09 — NOTIFICATION */
+  {
+    id: 'notify', name: 'Notification', cat: 'UI',
+    params: [
+      { key:'pitch1', label:'Note 1', min:400, max:1200, step:10, default:660, unit:'Hz' },
+      { key:'pitch2', label:'Note 2', min:500, max:1800, step:10, default:990, unit:'Hz' },
+      { key:'gap',    label:'Gap',    min:0.05, max:0.3, step:0.01, default:0.1, unit:'s' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.65, unit:'' }
+    ],
+    duration: p => p.gap + 0.4,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const playNote = (start, freq) => {
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        const o2 = ctx.createOscillator();
+        o2.type = 'triangle';
+        o2.frequency.value = freq * 2;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, start);
+        g.gain.linearRampToValueAtTime(p.volume, start + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+        const g2 = ctx.createGain();
+        g2.gain.setValueAtTime(0, start);
+        g2.gain.linearRampToValueAtTime(p.volume * 0.3, start + 0.005);
+        g2.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+        o.connect(g).connect(dest);
+        o2.connect(g2).connect(dest);
+        o.start(start); o.stop(start + 0.3);
+        o2.start(start); o2.stop(start + 0.3);
+      };
+      playNote(t, p.pitch1);
+      playNote(t + p.gap, p.pitch2);
+    }
+  },
+
+  /* 10 — DIGITAL ZAP */
+  {
+    id: 'zap', name: 'Digital Zap', cat: 'GLITCH',
+    params: [
+      { key:'sweep',  label:'Sweep',  min:200, max:4000, step:10, default:1800, unit:'Hz' },
+      { key:'time',   label:'Time',   min:0.08, max:0.5, step:0.01, default:0.18, unit:'s' },
+      { key:'bite',   label:'Bite',   min:0, max:1, step:0.01, default:0.7, unit:'' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.55, unit:'' }
+    ],
+    duration: p => p.time + 0.05,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(p.sweep * 2, t);
+      o.frequency.exponentialRampToValueAtTime(p.sweep * 0.2, t + p.time);
+
+      const ws = ctx.createWaveShaper();
+      const k = p.bite * 30;
+      const curve = new Float32Array(256);
+      for (let i=0;i<256;i++) {
+        const x = i/128 - 1;
+        curve[i] = (1 + k) * x / (1 + k * Math.abs(x));
+      }
+      ws.curve = curve;
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p.volume, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.001, t + p.time);
+
+      o.connect(ws).connect(g).connect(dest);
+      o.start(t); o.stop(t + p.time + 0.05);
+    }
+  },
+
+  /* 11 — SUCCESS CHIME */
+  {
+    id: 'success', name: 'Success Chime', cat: 'UI',
+    params: [
+      { key:'root',   label:'Root',   min:300, max:900, step:5, default:523, unit:'Hz' },
+      { key:'spread', label:'Spread', min:0.02, max:0.15, step:0.005, default:0.06, unit:'s' },
+      { key:'sparkle',label:'Sparkle',min:0, max:1, step:0.01, default:0.6, unit:'' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.6, unit:'' }
+    ],
+    duration: p => 0.8,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      // Major chord arpeggio C-E-G-C
+      const ratios = [1, 1.25, 1.5, 2];
+      ratios.forEach((r, i) => {
+        const ts = t + i * p.spread;
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = p.root * r;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, ts);
+        g.gain.linearRampToValueAtTime(p.volume * 0.6, ts + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, ts + 0.6);
+        o.connect(g).connect(dest);
+        o.start(ts); o.stop(ts + 0.7);
+
+        // Sparkle high harmonic
+        if (p.sparkle > 0) {
+          const o2 = ctx.createOscillator();
+          o2.type = 'triangle';
+          o2.frequency.value = p.root * r * 4;
+          const g2 = ctx.createGain();
+          g2.gain.setValueAtTime(0, ts);
+          g2.gain.linearRampToValueAtTime(p.volume * p.sparkle * 0.15, ts + 0.005);
+          g2.gain.exponentialRampToValueAtTime(0.001, ts + 0.3);
+          o2.connect(g2).connect(dest);
+          o2.start(ts); o2.stop(ts + 0.4);
+        }
+      });
+    }
+  },
+
+  /* 12 — DOWNER / FAIL */
+  {
+    id: 'fail', name: 'Fail / Downer', cat: 'UI',
+    params: [
+      { key:'pitch',  label:'Start',  min:300, max:900, step:5, default:520, unit:'Hz' },
+      { key:'fall',   label:'Fall',   min:0.3, max:0.95, step:0.01, default:0.55, unit:'' },
+      { key:'time',   label:'Time',   min:0.3, max:1.2, step:0.05, default:0.7, unit:'s' },
+      { key:'volume', label:'Volume', min:0, max:1, step:0.01, default:0.6, unit:'' }
+    ],
+    duration: p => p.time + 0.1,
+    synth: (ctx, dest, p, t0=0) => {
+      const t = t0 || ctx.currentTime;
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.setValueAtTime(p.pitch, t);
+      o.frequency.exponentialRampToValueAtTime(p.pitch * (1 - p.fall), t + p.time);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p.volume * 0.5, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + p.time);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 1800;
+      o.connect(lp).connect(g).connect(dest);
+      o.start(t); o.stop(t + p.time + 0.1);
+    }
+  }
+
+];
+
+/* ============================================================
+   UI Logic
+   ============================================================ */
+let currentPreset = PRESETS[0];
+let currentParams = {};
+let visualBuffer = null;
+
+const presetList = document.getElementById('presetList');
+const controlsGrid = document.getElementById('controlsGrid');
+const nowPlaying = document.getElementById('nowPlaying');
+const presetCategory = document.getElementById('presetCategory');
+const presetCount = document.getElementById('presetCount');
+const durationLabel = document.getElementById('durationLabel');
+const visualizer = document.getElementById('visualizer');
+const canvas = document.getElementById('vizCanvas');
+
+presetCount.textContent = String(PRESETS.length).padStart(2,'0');
+
+function buildPresetList() {
+  presetList.innerHTML = '';
+  PRESETS.forEach((preset, i) => {
+    const li = document.createElement('li');
+    li.className = 'preset-item' + (preset.id === currentPreset.id ? ' active' : '');
+    li.dataset.id = preset.id;
+    li.innerHTML = `
+      <span class="num">${String(i+1).padStart(2,'0')}</span>
+      <span class="name">${preset.name}</span>
+      <span class="cat">${preset.cat}</span>
+    `;
+    li.onclick = () => selectPreset(preset.id);
+    presetList.appendChild(li);
+  });
+}
+
+function selectPreset(id) {
+  const p = PRESETS.find(x => x.id === id);
+  if (!p) return;
+  currentPreset = p;
+  // Initialize params with defaults
+  currentParams = {};
+  p.params.forEach(param => currentParams[param.key] = param.default);
+  buildPresetList();
+  buildControls();
+  updateLabels();
+  renderVisualization();
+}
+
+function buildControls() {
+  controlsGrid.innerHTML = '';
+  currentPreset.params.forEach(param => {
+    const wrap = document.createElement('div');
+    wrap.className = 'control';
+    wrap.innerHTML = `
+      <div class="control-header">
+        <span class="control-label">${param.label}</span>
+        <span class="control-value" id="val-${param.key}">${formatValue(currentParams[param.key], param.unit)}</span>
+      </div>
+      <input type="range" min="${param.min}" max="${param.max}" step="${param.step}"
+             value="${currentParams[param.key]}" id="ctrl-${param.key}">
+    `;
+    controlsGrid.appendChild(wrap);
+    const input = wrap.querySelector('input');
+    input.oninput = (e) => {
+      currentParams[param.key] = parseFloat(e.target.value);
+      document.getElementById('val-'+param.key).textContent = formatValue(currentParams[param.key], param.unit);
+      renderVisualization();
+    };
+  });
+}
+
+function formatValue(v, unit) {
+  let str;
+  if (Math.abs(v) >= 100) str = v.toFixed(0);
+  else if (Math.abs(v) >= 10) str = v.toFixed(1);
+  else if (Math.abs(v) >= 1) str = v.toFixed(2);
+  else str = v.toFixed(3);
+  return str + (unit ? ' ' + unit : '');
+}
+
+function updateLabels() {
+  nowPlaying.textContent = currentPreset.name.toUpperCase();
+  presetCategory.textContent = currentPreset.cat;
+  durationLabel.textContent = currentPreset.duration(currentParams).toFixed(2) + 's';
+}
+
+/* ---------- Visualization ---------- */
+async function renderVisualization() {
+  updateLabels();
+  const dur = Math.max(0.1, currentPreset.duration(currentParams));
+  try {
+    visualBuffer = await renderToBuffer(
+      (ctx, dest) => currentPreset.synth(ctx, dest, currentParams, 0),
+      dur
+    );
+    drawWaveform(visualBuffer);
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function drawWaveform(buffer) {
+  const ctx2d = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  const H = canvas.height = 220 * window.devicePixelRatio;
+  ctx2d.clearRect(0,0,W,H);
+
+  const data = buffer.getChannelData(0);
+  const step = Math.max(1, Math.floor(data.length / W));
+  const mid = H/2;
+
+  // grid
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx2d.lineWidth = 1;
+  for (let i=1; i<8; i++) {
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, (H/8)*i);
+    ctx2d.lineTo(W, (H/8)*i);
+    ctx2d.stroke();
+  }
+  // center line
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, mid); ctx2d.lineTo(W, mid); ctx2d.stroke();
+
+  // waveform - filled
+  ctx2d.fillStyle = 'rgba(212,255,0,0.2)';
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, mid);
+  for (let x=0; x<W; x++) {
+    let max = 0;
+    for (let j=0; j<step; j++) {
+      const v = data[x*step + j] || 0;
+      if (Math.abs(v) > Math.abs(max)) max = v;
+    }
+    ctx2d.lineTo(x, mid - max * mid * 0.95);
+  }
+  for (let x=W-1; x>=0; x--) {
+    let min = 0;
+    for (let j=0; j<step; j++) {
+      const v = data[x*step + j] || 0;
+      if (Math.abs(v) > Math.abs(min)) min = v;
+    }
+    ctx2d.lineTo(x, mid - min * mid * 0.95);
+  }
+  ctx2d.closePath();
+  ctx2d.fill();
+
+  // waveform - line
+  ctx2d.strokeStyle = '#d4ff00';
+  ctx2d.lineWidth = 1.5 * window.devicePixelRatio;
+  ctx2d.beginPath();
+  for (let x=0; x<W; x++) {
+    let max = 0;
+    for (let j=0; j<step; j++) {
+      const v = data[x*step + j] || 0;
+      if (Math.abs(v) > Math.abs(max)) max = v;
+    }
+    const y = mid - max * mid * 0.95;
+    if (x===0) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
+  }
+  ctx2d.stroke();
+}
+
+/* ---------- Playback ---------- */
+function play() {
+  const ctx = getCtx();
+  currentPreset.synth(ctx, ctx.destination, currentParams, ctx.currentTime + 0.02);
+  visualizer.classList.remove('triggered');
+  void visualizer.offsetWidth;
+  visualizer.classList.add('triggered');
+}
+
+async function exportWav() {
+  const dur = currentPreset.duration(currentParams);
+  const buf = await renderToBuffer(
+    (ctx, dest) => currentPreset.synth(ctx, dest, currentParams, 0),
+    dur
+  );
+  const blob = bufferToWav(buf);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sfx_${currentPreset.id}_${Date.now()}.wav`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function randomize() {
+  currentPreset.params.forEach(p => {
+    if (p.key === 'volume') return; // keep volume sane
+    const v = rand(p.min, p.max);
+    currentParams[p.key] = Math.round(v / p.step) * p.step;
+  });
+  buildControls();
+  renderVisualization();
+  play();
+}
+
+function reset() {
+  currentPreset.params.forEach(p => currentParams[p.key] = p.default);
+  buildControls();
+  renderVisualization();
+}
+
+/* ---------- Wire up ---------- */
+document.getElementById('playBtn').onclick = play;
+document.getElementById('downloadBtn').onclick = exportWav;
+document.getElementById('randomizeBtn').onclick = randomize;
+document.getElementById('resetBtn').onclick = reset;
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); play(); }
+  else if (e.key === 'r' || e.key === 'R') randomize();
+  else if (/^[1-9]$/.test(e.key)) {
+    const idx = parseInt(e.key) - 1;
+    if (PRESETS[idx]) selectPreset(PRESETS[idx].id);
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (visualBuffer) drawWaveform(visualBuffer);
+});
+
+/* Init */
+selectPreset(PRESETS[0].id);
+</script>
+
+</body>
+</html>
