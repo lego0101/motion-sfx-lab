@@ -1012,6 +1012,85 @@
     margin: 0 24px 16px;
   }
 
+  /* Manual duration row */
+  .manual-duration-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  .controls .manual-duration-row {
+    margin: 16px 24px 8px;
+  }
+
+  .manual-duration-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .manual-duration-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #manualDurationInput {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    width: 70px;
+    padding: 5px 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 4px;
+    text-align: right;
+  }
+
+  #manualDurationInput:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Hide number-input spinner buttons */
+  #manualDurationInput::-webkit-inner-spin-button,
+  #manualDurationInput::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .manual-duration-unit {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .manual-duration-clear {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .manual-duration-clear:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
   /* typing-only: hide for other presets */
   .typing-only {
     display: none !important;
@@ -1546,6 +1625,16 @@
         <span style="color: var(--muted);" id="presetCategory">—</span>
       </div>
       <div class="controls-grid" id="controlsGrid"></div>
+
+      <!-- Manual duration override (typing-mode only) -->
+      <div class="manual-duration-row typing-only">
+        <span class="manual-duration-label">TOTAL DURATION (LOCK)</span>
+        <div class="manual-duration-input-wrap">
+          <input type="number" id="manualDurationInput" min="0.1" max="60" step="0.1" placeholder="auto" />
+          <span class="manual-duration-unit">sec</span>
+          <button class="manual-duration-clear" id="manualDurationClear" type="button" title="Clear lock">×</button>
+        </div>
+      </div>
 
       <!-- Spacebar toggle (typing-mode only — hidden via CSS for other presets) -->
       <div class="spacebar-toggle-row typing-only">
@@ -2163,7 +2252,7 @@ const PRESETS = [
 
   /* 13 — TYPING (text-driven sequencer with sections, realistic keyboard) */
   {
-    id: 'typing', name: 'Typing', cat: 'TEXT',
+    id: 'typing', name: 'Keyboard Typing', cat: 'TEXT',
     isTyping: true,
     // v2: SAMPLE-BASED typing — uses real keyboard recordings (Old Desktop + Surface Laptop)
     // with optional user samples. Includes Blend (Old↔Surface) and video timing sync.
@@ -2302,8 +2391,10 @@ const typingState = {
   // v3: when set (by Match SFX), typing duration fits this many seconds
   matchToDuration: null,
   // v4: Sparse mode — when set to N>1, only every Nth character plays a sound.
-  // Used when typing too fast for natural sound (Match Sparse button).
   sparseStep: 1,
+  // v10: Manual duration override — user-entered total duration in seconds.
+  // Takes priority over matchToDuration if both set. Works without video.
+  manualDuration: null,
   // Active playback handle for stop functionality
   activePlayback: null
 };
@@ -2532,12 +2623,19 @@ function computeTypingTimings() {
 
   let totalDuration = t + 0.2;
 
-  // v3: If Match SFX has been clicked, scale all times to fit the matched duration
-  if (typingState.matchToDuration && typingState.matchToDuration > 0 && totalDuration > 0.1) {
-    const target = typingState.matchToDuration;
-    const scale = target / totalDuration;
+  // v10: Determine target duration with priority:
+  //   1. manualDuration (user-entered, works without video)
+  //   2. matchToDuration (set by Match to Video button)
+  //   3. natural duration (no scaling)
+  const targetDuration = (typingState.manualDuration && typingState.manualDuration > 0)
+    ? typingState.manualDuration
+    : (typingState.matchToDuration && typingState.matchToDuration > 0)
+      ? typingState.matchToDuration
+      : null;
+  if (targetDuration && totalDuration > 0.1) {
+    const scale = targetDuration / totalDuration;
     for (let i = 0; i < times.length; i++) times[i] *= scale;
-    totalDuration = target;
+    totalDuration = targetDuration;
   }
 
   return { times, totalDuration };
@@ -2582,14 +2680,20 @@ function scheduleTypingSequence(ctx, dest, t0) {
     const ch = text[i];
     let shouldPlay = true;
     if (step > 1) {
-      // Always play first character; then every Nth.
-      // Skip ahead-counter: only count "real" characters (not pure whitespace)
-      // toward the step so spaces don't shift the rhythm too much.
+      // v10: Sparse-aware spacebar handling.
+      // If spacebar is enabled, whitespace plays (not skipped) and is also
+      // exempt from the skip counter so it doesn't disrupt rhythm of letters.
+      // If spacebar is disabled, whitespace is silent in both sparse and
+      // non-sparse modes (handled by synth function checking the global flag).
       const isWS = ch === ' ' || ch === '\n' || ch === '\t';
+      const spacebarOn = window.__TYPING_SPACEBAR_ENABLED !== false;
       if (i === 0) {
         shouldPlay = true;
         charsSinceLastPlay = 0;
-      } else if (!isWS) {
+      } else if (isWS) {
+        // Spaces: play if spacebar ON, never count toward skip step
+        shouldPlay = spacebarOn;
+      } else {
         charsSinceLastPlay++;
         if (charsSinceLastPlay >= step) {
           shouldPlay = true;
@@ -2597,8 +2701,6 @@ function scheduleTypingSequence(ctx, dest, t0) {
         } else {
           shouldPlay = false;
         }
-      } else {
-        shouldPlay = false;
       }
     }
     if (!shouldPlay) continue;
@@ -3075,11 +3177,41 @@ function randomize() {
 
 function reset() {
   if (isTypingMode()) {
-    // Reset only the active section's params to defaults
-    const sec = typingState.sections[typingState.activeSection];
-    currentPreset.params.forEach(p => sec.params[p.key] = p.default);
-    renderSectionEditor();
-    renderTimeline();
+    // v10: Reset typing mode cleanly
+    // 1. Reset all sections to preset defaults
+    typingState.sections.forEach(sec => {
+      currentPreset.params.forEach(p => sec.params[p.key] = p.default);
+    });
+    // 2. Reset currentParams (used by slider UI)
+    currentPreset.params.forEach(p => currentParams[p.key] = p.default);
+    // 3. Release any match-to-video lock
+    typingState.matchToDuration = null;
+    typingState.sparseStep = 1;
+    // 4. Reset manual duration override
+    typingState.manualDuration = null;
+    // 5. Update Match status UI
+    const matchStatus = document.getElementById('vsMatchStatus');
+    if (matchStatus) {
+      matchStatus.textContent = '';
+      matchStatus.classList.remove('matched');
+    }
+    const playWithVideoBtn = document.getElementById('vsPlayWithVideoBtn');
+    if (playWithVideoBtn) playWithVideoBtn.disabled = true;
+    window.__VS_MATCHED = false;
+    window.__VS_TRIM_DURATION = null;
+    // 6. Reset spacebar toggle to OFF (default)
+    const spaceBtn = document.getElementById('spacebarToggle');
+    if (spaceBtn) {
+      spaceBtn.classList.remove('active');
+      const stateEl = spaceBtn.querySelector('.toggle-state');
+      if (stateEl) stateEl.textContent = 'OFF';
+    }
+    window.__TYPING_SPACEBAR_ENABLED = false;
+    // 7. Reset manual duration input UI
+    const durInput = document.getElementById('manualDurationInput');
+    if (durInput) durInput.value = '';
+    // 8. Rebuild slider UI to show default values
+    buildControls();
     updateLabels();
     renderVisualization();
     return;
@@ -3632,6 +3764,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initVideoSync();
     initBlendSlider();
     initSpacebarToggle();
+    initManualDuration();
     initVideoMatchSync();
     loadDefaultSamples();
   }, 100);
@@ -3680,6 +3813,38 @@ function initSpacebarToggle() {
       window.__TYPING_SPACEBAR_ENABLED = true;
     }
   };
+}
+
+/* ============================================================
+   MANUAL DURATION OVERRIDE (v10)
+   User-entered total duration in seconds. Works without video.
+   Has priority over matchToDuration when both set.
+   ============================================================ */
+function initManualDuration() {
+  const input = document.getElementById('manualDurationInput');
+  const clearBtn = document.getElementById('manualDurationClear');
+  if (!input) return;
+
+  const apply = () => {
+    const raw = parseFloat(input.value);
+    if (!isFinite(raw) || raw <= 0) {
+      typingState.manualDuration = null;
+    } else {
+      typingState.manualDuration = Math.max(0.1, Math.min(60, raw));
+    }
+    if (typeof updateLabels === 'function') updateLabels();
+  };
+
+  input.oninput = apply;
+  input.onchange = apply;
+
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      input.value = '';
+      typingState.manualDuration = null;
+      if (typeof updateLabels === 'function') updateLabels();
+    };
+  }
 }
 
 /* ============================================================
